@@ -1,0 +1,23 @@
+# Dependencies
+node_modules
+npm-debug.log
+
+# Environment variables
+.env
+
+# Build output
+dist
+
+# IDE files
+.idea
+.vscode
+*.swp
+.DS_Store
+
+# User Uploads (Keep the folder, ignore the files)
+frontend/public/uploads/*
+!frontend/public/uploads/.gitkeep
+
+# Logs
+logs
+*.log

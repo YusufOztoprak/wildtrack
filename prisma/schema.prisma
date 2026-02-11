@@ -1,0 +1,32 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now())
+  observations Observation[]
+}
+
+model Observation {
+  id          Int      @id @default(autoincrement())
+  species     String
+  count       Int      @default(1)
+  behavior    String?
+  latitude    Float
+  longitude   Float
+  imageUrl    String?
+  observedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  
+  authorId    Int
+  author      User     @relation(fields: [authorId], references: [id])
+}
