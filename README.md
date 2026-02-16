@@ -109,7 +109,12 @@ We have included scripts to verify the integrity and security of the system:
 ---
 
 ## 🇺🇦 Acknowledgements
-Map data provided by **OpenStreetMap**. Visualization powered by **Leaflet**.
+
+This project proudly uses **Leaflet**, the leading open-source JavaScript library for mobile-friendly interactive maps.
+
+We would like to acknowledge **Volodymyr Agafonkin**, the creator of Leaflet. A Ukrainian citizen, Volodymyr continued to support the open-source community even while facing the hardships of the war in Ukraine starting in 2022. His resilience and dedication are an inspiration to developers worldwide.
+
+Map data provided by **OpenStreetMap**.
 
 ---
 
