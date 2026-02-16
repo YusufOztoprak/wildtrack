@@ -2,9 +2,6 @@
 
 > **WildTrack** is a sophisticated, full-stack geospatial application designed for the precise logging and analysis of wildlife data. Built with modern web technologies, it features **strict scientific validation**, **AI integration**, and **secure geospatial data management**.
 
-![Status](https://img.shields.io/badge/Status-Production%20Ready-green)
-![Tech](https://img.shields.io/badge/Stack-PERN%20Stack-blue)
-![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ---
 
