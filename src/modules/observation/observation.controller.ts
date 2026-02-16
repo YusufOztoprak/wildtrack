@@ -116,36 +116,57 @@ export const createObservationHandler = async (req: Request, res: Response) => {
     const behavior = result.data.body.behavior?.toLowerCase() || '';
 
     // 3. Scientific Biological Validation (Engine)
+    // 3. SCIENTIFIC & BIOLOGICAL VALIDATION ENGINE
+    // This engine now handles Species, Behavior, Count, AND Photo Consistency rules.
     try {
       const { validateScientific } = await import('../validation/scientific.validator');
-      const validation = validateScientific(species, behavior);
 
-      if (!validation.valid) {
+      const validation = validateScientific(
+        species,
+        behavior,
+        result.data.body.count,
+        aiPrediction
+      );
+
+      // STRICT REJECTION if overall invalid
+      if (!validation.overall_valid) {
         await cleanupFile();
         return res.status(400).json({
           success: false,
-          message: `Scientific Validation Failed (Biological Mismatch)`,
-          errors: [
-            {
-              message: "Observation rejected by biological laws.",
-              details: validation
-            }
-          ]
+          message: `Scientific Validation Failed: ${validation.issues[0] || 'Invalid observation'}`,
+          errors: validation.issues.map(msg => ({ message: msg })),
+          scientificResult: validation
         });
       }
+
+      // If suspicious but not invalid (soft fail), we FLAG it.
+      if (validation.status === 'suspicious') {
+        verificationStatus = 'FLAGGED';
+      } else if (validation.status === 'valid' && aiPrediction && validation.photo_consistent) {
+        verificationStatus = 'VERIFIED';
+      }
+
     } catch (e) {
       console.error('Validation Engine Error', e);
+      // Fail closed? Or allow pending? Let's generic error.
+      return res.status(500).json({
+        success: false,
+        message: 'Validation Engine Crash'
+      });
     }
 
     const observation = await createObservation(result.data.body, userId, imagePath);
 
-    // Update verification status if valid
-    if (verificationStatus === 'VERIFIED' && aiConfidence) {
+    // Update verification status if valid or flagged
+    if (verificationStatus !== 'PENDING' || aiConfidence) {
       const { PrismaClient } = await import('@prisma/client');
       const prisma = new PrismaClient();
       await prisma.observation.update({
         where: { id: observation.id },
-        data: { verificationStatus, aiConfidence }
+        data: {
+          verificationStatus,
+          aiConfidence: aiConfidence || null
+        }
       });
     }
 

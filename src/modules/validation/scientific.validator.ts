@@ -160,12 +160,28 @@ const turkishBehaviors: Record<string, string> = {
     'koş': 'run', 'kos': 'run', 'koşmak': 'run', 'kosmak': 'run'
 };
 
-export const validateScientific = (speciesInput: string, behaviorInput: string): ValidationEvent => {
+export interface ScientificValidationResult {
+    species_valid: boolean;
+    behavior_valid: boolean;
+    count_valid: boolean;
+    photo_consistent: boolean | null;
+    overall_valid: boolean;
+    confidence_score: number;
+    status: 'valid' | 'invalid' | 'suspicious';
+    issues: string[];
+}
+
+export const validateScientific = (
+    speciesInput: string,
+    behaviorInput: string,
+    count: number,
+    aiPrediction?: { species: string; confidence: number } | null
+): ScientificValidationResult => {
+    const issues: string[] = [];
     let species = speciesInput.toLowerCase().trim();
     let behavior = behaviorInput.toLowerCase().trim();
 
-    // Normalize Turkish inputs to English for internal validation
-    // Check approximate matches in aliases
+    // 1. Normalize Species (TR -> EN)
     for (const [tr, en] of Object.entries(turkishAliases)) {
         if (species === tr || species.includes(tr)) {
             species = en;
@@ -173,18 +189,17 @@ export const validateScientific = (speciesInput: string, behaviorInput: string):
         }
     }
 
+    // 2. Normalize Behavior (TR -> EN)
     for (const [tr, en] of Object.entries(turkishBehaviors)) {
         if (behavior.includes(tr)) {
-            behavior = en;
-            // Don't break, might have multiple keywords? 
-            // Usually one major behavior. Let's append or replace for validation check.
-            // Actually, behaviorConstraints check 'includes'. So appending is safer.
             behavior += ' ' + en;
         }
     }
 
-    // 1. Identify Traits
-    // Try exact match first, then fuzzy
+    // --- VALIDATION LOGIC ---
+
+    // A. Species Validation
+    let speciesValid = false;
     let traits: Trait[] = [];
     let matchedSpecies = '';
 
@@ -192,73 +207,103 @@ export const validateScientific = (speciesInput: string, behaviorInput: string):
         if (species.includes(key)) {
             traits = t;
             matchedSpecies = key;
+            speciesValid = true;
             break;
         }
     }
 
-    // STRICT RULE: "If uncertain -> mark invalid."
-    if (!matchedSpecies) {
-        return {
-            animal: species,
-            behavior: behavior,
-            valid: false,
-            reason: "Species not found in Scientific Knowledge Base. Cannot verify biological realism."
-        };
+    if (!speciesValid) {
+        issues.push(`Species '${speciesInput}' not found in scientific taxonomy database.`);
     }
 
-    // 2. Check Behavior Constraints
-    for (const [action, rule] of Object.entries(behaviorConstraints)) {
-        if (behavior.includes(action)) {
-
-            // Allow exceptions logic (e.g. Polar Bears can swim)
-            // The trait 'Aquatic' handles this.
-            // If checking 'swim':
-            // If rule requires 'Aquatic' and traits has 'Aquatic' -> OK.
-            // If traits has NO 'Aquatic' -> REJECT.
-
-            if (rule.required) {
-                // Exception logic: Some Terrestrial can swim (e.g. Tiger). 
-                // However, user rule: "A fish cannot walk... A bird without hunting traits cannot hunt"
-                // My traits table needs to be accurate.
-                // If a Tiger (Terrestrial) tries to Swim (Requires Aquatic), it fails.
-                // FIX: Add 'Aquatic' to Tiger/Bear/Dog/Human if they can swim. 
-                // For now, Strict Enforcement of current traits.
-
-                const hasRequirement = rule.required.some(r => traits.includes(r));
-                if (!hasRequirement) {
-                    return {
-                        animal: matchedSpecies,
-                        behavior: behavior,
-                        valid: false,
-                        reason: `Biological Mismatch: ${matchedSpecies} is ${traits.join('/')}, but '${action}' requires [${rule.required.join(' or ')}]. ${rule.msg}`
-                    };
+    // B. Behavior Validation
+    let behaviorValid = true;
+    if (speciesValid && behavior) {
+        for (const [action, rule] of Object.entries(behaviorConstraints)) {
+            if (behavior.includes(action)) {
+                if (rule.required) {
+                    const hasRequirement = rule.required.some(r => traits.includes(r));
+                    if (!hasRequirement) {
+                        behaviorValid = false;
+                        issues.push(`Behavior Mismatch: '${action}' requires traits [${rule.required.join('/')}], but ${matchedSpecies} is [${traits.join(', ')}].`);
+                    }
                 }
-            }
+                if (rule.forbidden) {
+                    const isForbidden = rule.forbidden.some(f => traits.includes(f));
+                    // Special checks (Aquatic exclusion)
+                    const isPurelyAquatic = traits.includes('Aquatic') && !traits.includes('Terrestrial') && !traits.includes('Avian');
 
-            if (rule.forbidden) {
-                // Specific Logic for Walking/Running
-                // If species is Aquatic ONLY (no Terrestrial or Avian), it cannot walk.
-                // e.g. Penguin (Avian, Aquatic) -> Can walk (Avian saves it? mostly).
-                // e.g. Seal (Aquatic, Terrestrial? No usually just Aquatic in simple taxonomy, need to add Terrestrial if they waddle).
-                // For Strictness:
-
-                const isPurelyAquatic = traits.includes('Aquatic') && !traits.includes('Terrestrial') && !traits.includes('Avian');
-
-                if (isPurelyAquatic && (action.includes('walk') || action.includes('run'))) {
-                    return {
-                        animal: matchedSpecies,
-                        behavior: behavior,
-                        valid: false,
-                        reason: `Anatomical Impossibility: Purely aquatic species (${matchedSpecies}) lacks limbs for terrestrial locomotion.`
-                    };
+                    if (isPurelyAquatic && (action.includes('walk') || action.includes('run'))) {
+                        behaviorValid = false;
+                        issues.push(`Physiological Impossibility: Aquatic species (${matchedSpecies}) cannot '${action}' on land.`);
+                    }
                 }
             }
         }
     }
 
+    // C. Count Validation
+    let countValid = true;
+    if (count <= 0) {
+        countValid = false;
+        issues.push(`Impossible Count: ${count}. Population must be positive.`);
+    } else if (count > 100) {
+        // Soft limit warning, or strict? User said "Reject impossible numbers". 
+        // 500 lions is impossible. 1000 birds might be possible. 
+        // Let's keep the existing 100 limit rule from controller but enforce it here.
+        countValid = false;
+        issues.push(`Ecological Improbability: Count ${count} exceeds realistic herd/pack size limits for manual observation.`);
+    }
+
+    // D. Photo Consistency
+    // Compare User Input vs AI
+    let photoConsistent: boolean | null = null;
+    if (aiPrediction) {
+        const aiSpecies = aiPrediction.species.toLowerCase();
+        // Fuzzy match
+        const isMatch = species.includes(aiSpecies) || aiSpecies.includes(species);
+
+        if (isMatch) {
+            photoConsistent = true;
+        } else {
+            // If AI is very confident it's something else
+            if (aiPrediction.confidence > 0.8) {
+                photoConsistent = false;
+                issues.push(`Visual Evidence Mismatch: AI identified '${aiPrediction.species}' (${Math.round(aiPrediction.confidence * 100)}%), which contradicts user claim '${speciesInput}'.`);
+            } else {
+                // Low confidence mismatch -> Suspicious but not strictly invalid photo (could be bad photo)
+                photoConsistent = null; // Uncertain
+            }
+        }
+    }
+
+    // --- RESULT AGGREGATION ---
+    let overallValid = speciesValid && behaviorValid && countValid;
+    if (photoConsistent === false) overallValid = false;
+
+    let status: 'valid' | 'invalid' | 'suspicious' = 'valid';
+    if (!overallValid) status = 'invalid';
+    else if (photoConsistent === null && aiPrediction) status = 'suspicious'; // AI wasn't sure
+    else if (!aiPrediction && overallValid) status = 'valid'; // Trust user if no photo
+
+    // Confidence Score Calculation (0-100)
+    // Start at 100, deduct for issues or missing proofs
+    let score = 100;
+    if (!speciesValid) score = 0;
+    if (!behaviorValid) score -= 30;
+    if (!countValid) score -= 20;
+    if (photoConsistent === false) score -= 50;
+    if (photoConsistent === null) score -= 10; // Uncertainty penalty
+    if (score < 0) score = 0;
+
     return {
-        animal: matchedSpecies,
-        behavior: behavior,
-        valid: true
+        species_valid: speciesValid,
+        behavior_valid: behaviorValid,
+        count_valid: countValid,
+        photo_consistent: photoConsistent,
+        overall_valid: overallValid,
+        confidence_score: score,
+        status: status,
+        issues: issues
     };
 };

@@ -20,7 +20,19 @@ export const translations = {
         locationSelect: "Click on map to select location",
         stats: "Statistics",
         topSpecies: "Top Species",
-        observationTrend: "Observation Trend"
+        observationTrend: "Observation Trend",
+        loginSuccess: "Welcome back!",
+        loginFailed: "Login failed: ",
+        loginError: "Error logging in",
+        registerSuccess: "Registered successfully!",
+        registerFailed: "Registration failed: ",
+        registerError: "Error registering",
+        obsSaved: "Observation saved!",
+        obsSaveFailed: "Failed: ",
+        obsSaveError: "Error saving observation",
+        aiPredicted: "AI: Predicted",
+        aiConfirmed: "AI Confirmed",
+        pleaseLogin: "Please login to add observations."
     },
     tr: {
         addObservation: "Gözlem Ekle",
@@ -43,6 +55,18 @@ export const translations = {
         locationSelect: "Konum seçmek için haritaya tıklayın",
         stats: "İstatistikler",
         topSpecies: "En Çok Görülenler",
-        observationTrend: "Gözlem Trendi"
+        observationTrend: "Gözlem Trendi",
+        loginSuccess: "Tekrar hoşgeldiniz!",
+        loginFailed: "Giriş başarısız: ",
+        loginError: "Giriş yapılırken hata oluştu",
+        registerSuccess: "Kayıt başarılı!",
+        registerFailed: "Kayıt başarısız: ",
+        registerError: "Kayıt olurken hata oluştu",
+        obsSaved: "Gözlem kaydedildi!",
+        obsSaveFailed: "Başarısız: ",
+        obsSaveError: "Gözlem kaydedilirken hata",
+        aiPredicted: "YZ Tahmini:",
+        aiConfirmed: "YZ Doğruladı:",
+        pleaseLogin: "Gözlem eklemek için lütfen giriş yapın."
     }
 };

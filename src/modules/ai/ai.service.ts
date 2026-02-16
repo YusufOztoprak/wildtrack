@@ -44,9 +44,21 @@ export const predictSpecies = async (imagePath: string): Promise<{ species: stri
         }
     }
 
+    // Mock Logic for "Trap" words (Non-Animals)
+    // If the file is named "car.jpg", "building.jpg", etc., we simulate a high-confidence MATCH
+    // for a non-animal object. This allows testing the "Security Block" feature.
+    const trapObjects = ['car', 'building', 'person', 'bike', 'plane', 'house', 'city'];
+    for (const obj of trapObjects) {
+        if (filename.includes(obj)) {
+            // Capitalize
+            const objectName = obj.charAt(0).toUpperCase() + obj.slice(1);
+            return { species: objectName, confidence: 0.98 }; // High confidence "It is a Car"
+        }
+    }
+
     // Default strict fallback
     return {
         species: 'Unidentified Object',
-        confidence: 0.95
+        confidence: 0.2
     };
 };

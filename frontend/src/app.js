@@ -238,12 +238,12 @@ async function login(email, password) {
             localStorage.setItem('user', JSON.stringify(data.user));
             closeModal('auth-modal');
             checkAuth();
-            showToast('Welcome back!', 'success');
+            showToast(translations[currentLang].loginSuccess, 'success');
         } else {
-            showToast('Login failed: ' + (data.message || 'Unknown error'), 'error');
+            showToast(translations[currentLang].loginFailed + (data.message || ''), 'error');
         }
     } catch (err) {
-        showToast('Error logging in', 'error');
+        showToast(translations[currentLang].loginError, 'error');
     }
 }
 
@@ -261,12 +261,12 @@ async function register(name, email, password) {
             localStorage.setItem('user', JSON.stringify(data.user));
             closeModal('auth-modal');
             checkAuth();
-            showToast('Registered successfully!', 'success');
+            showToast(translations[currentLang].registerSuccess, 'success');
         } else {
-            showToast('Registration failed: ' + (data.message || 'Unknown error'), 'error');
+            showToast(translations[currentLang].registerFailed + (data.message || ''), 'error');
         }
     } catch (err) {
-        showToast('Error registering', 'error');
+        showToast(translations[currentLang].registerError, 'error');
     }
 }
 
@@ -281,7 +281,7 @@ function logout() {
 async function saveObservation(e) {
     e.preventDefault();
     if (!user) {
-        alert('Please login first');
+        alert(translations[currentLang].pleaseLogin);
         return;
     }
 
@@ -326,19 +326,19 @@ async function saveObservation(e) {
                 const confidence = Math.round(data.aiPrediction.confidence * 100);
 
                 if (userSpecies.toLowerCase() !== aiSpecies.toLowerCase()) {
-                    showToast(`AI: Predicted ${aiSpecies} (${confidence}%) vs Your ${userSpecies}`, 'info');
+                    showToast(`${translations[currentLang].aiPredicted} ${aiSpecies} (${confidence}%)`, 'info');
                 } else {
-                    showToast(`AI Confirmed: ${aiSpecies} (${confidence}%)`, 'success');
+                    showToast(`${translations[currentLang].aiConfirmed} ${aiSpecies} (${confidence}%)`, 'success');
                 }
             } else {
-                showToast('Observation saved!', 'success');
+                showToast(translations[currentLang].obsSaved, 'success');
             }
 
         } else {
-            showToast('Failed: ' + (data.message || 'Error'), 'error');
+            showToast(translations[currentLang].obsSaveFailed + (data.message || 'Error'), 'error');
         }
     } catch (err) {
-        showToast('Error saving observation', 'error');
+        showToast(translations[currentLang].obsSaveError, 'error');
     } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = originalBtnText;
@@ -427,7 +427,7 @@ function initEventListeners() {
 
     document.getElementById('add-obs-btn').addEventListener('click', () => {
         if (!user) {
-            showToast('Please login to add observations.', 'error');
+            showToast(translations[currentLang].pleaseLogin, 'error');
             openModal('auth-modal');
         } else {
             isSelectingLocation = true;
