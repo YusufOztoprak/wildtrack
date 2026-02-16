@@ -22,3 +22,5 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
   req.user = decoded;
   next();
 };
+
+export const protect = authenticate;

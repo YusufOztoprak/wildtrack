@@ -1,63 +1,299 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WildTrack - Observation Map</title>
-    
+    <title>WildTrack - Wildlife Observation System</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-     crossorigin=""/>
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="/src/styles/main.css">
+    <link rel="stylesheet" href="/src/styles.css">
 </head>
+
 <body>
 
-    <!-- Map Container -->
+    <!-- Navbar / Header -->
+    <header class="glass-header">
+        <div class="logo">
+            <i class="fa-solid fa-paw"></i> WildTrack
+        </div>
+        <div class="header-controls">
+            <button id="add-obs-btn" class="btn-primary">
+                <i class="fa-solid fa-plus"></i> <span data-i18n="addObservation">Add Observation</span>
+            </button>
+            <div class="lang-switch">
+                <button class="lang-btn active" data-lang="en">EN</button>
+                <button class="lang-btn" data-lang="tr">TR</button>
+            </div>
+            <div id="auth-section">
+                <!-- Dynamically filled -->
+                <button id="login-btn" class="btn-secondary" data-i18n="login">Login</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Map Container -->
     <div id="map"></div>
 
-    <!-- Observation Form -->
-    <div id="form-container" class="hidden">
-        <h3>Add Observation</h3>
-        <form id="observation-form">
-            <div class="form-group">
-                <label for="species">Species</label>
-                <input type="text" id="species" required placeholder="e.g. Wolf">
-            </div>
-            
-            <div class="form-group">
-                <label for="count">Count</label>
-                <input type="number" id="count" required min="1" value="1">
-            </div>
+    <!-- Filter / Stats Panel (Overlay) -->
+    <div class="panel-overlay left-panel">
+        <h3 data-i18n="filters">Filters</h3>
+        <div class="filter-group">
+            <label data-i18n="species">Species</label>
+            <select id="species-filter">
+                <option value="all" data-i18n="all">All</option>
+                <!-- Dynamic options -->
+            </select>
+        </div>
+        <div class="filter-group">
+            <label data-i18n="radius">Radius (km)</label>
+            <input type="range" id="radius-filter" min="1" max="100" value="50">
+            <span id="radius-val">50 km</span>
+        </div>
 
-            <div class="form-group">
-                <label for="behavior">Behavior</label>
-                <input type="text" id="behavior" placeholder="e.g. Sleeping">
-            </div>
+        <div class="filter-group">
+            <label>Heatmap</label>
+            <button id="toggle-heatmap" class="btn-secondary" style="width:100%">
+                <i class="fa-solid fa-fire"></i> Toggle Heatmap
+            </button>
+        </div>
 
-            <div class="form-group">
-                <label for="image">Photo</label>
-                <input type="file" id="image" accept="image/*">
-            </div>
+        <hr style="border: 1px solid var(--glass-border); margin: 1rem 0;">
 
-            <input type="hidden" id="lat">
-            <input type="hidden" id="lng">
+        <button id="show-stats-btn" class="btn-primary" style="width:100%">
+            <i class="fa-solid fa-chart-pie"></i> <span data-i18n="stats">Stats</span>
+        </button>
+    </div>
 
-            <div class="form-actions">
-                <button type="button" id="cancel-btn" class="btn-secondary">Cancel</button>
-                <button type="submit" class="btn-primary">Save Observation</button>
+    <!-- Stats Modal -->
+    <div id="stats-modal" class="modal hidden">
+        <div class="modal-content glass-panel" style="max-width: 800px;">
+            <span class="close-modal">&times;</span>
+            <h2 data-i18n="stats">Statistics</h2>
+            <div class="charts-container" style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 300px;">
+                    <h4 data-i18n="topSpecies">Top Species</h4>
+                    <canvas id="speciesChart"></canvas>
+                </div>
+                <!-- slide -->
+                <div style="flex: 1; min-width: 300px;">
+                    <h4 data-i18n="observationTrend">Observation Trend (Last 7 Days)</h4>
+                    <canvas id="trendChart"></canvas>
+                </div>
             </div>
-        </form>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 3000;"></div>
+
+    <!-- Observation Modal -->
+    <div id="obs-modal" class="modal hidden">
+        <div class="modal-content glass-panel">
+            <span class="close-modal">&times;</span>
+            <h2 data-i18n="newObservation">New Observation</h2>
+            <form id="obs-form">
+                <div class="form-group">
+                    <label for="form-species" data-i18n="species">Species</label>
+                    <input type="text" id="form-species" name="species" list="species-list" required
+                        class="w-full p-2 border rounded glass-input" placeholder="Type or select species...">
+                    <datalist id="species-list">
+                        <option value="Wolf">
+                        <option value="Bear">
+                        <option value="Eagle">
+                        <option value="Lion">
+                        <option value="Tiger">
+                        <option value="Leopard">
+                        <option value="Cheetah">
+                        <option value="Elephant">
+                        <option value="Giraffe">
+                        <option value="Zebra">
+                        <option value="Rhino">
+                        <option value="Hippopotamus">
+                        <option value="Crocodile">
+                        <option value="Snake">
+                        <option value="Fox">
+                        <option value="Deer">
+                        <option value="Moose">
+                        <option value="Bison">
+                        <option value="Wild Boar">
+                        <option value="Lynx">
+                        <option value="Cougar">
+                        <option value="Jaguar">
+                        <option value="Monkey">
+                        <option value="Gorilla">
+                        <option value="Chimpanzee">
+                        <option value="Kangaroo">
+                        <option value="Koala">
+                        <option value="Panda">
+                        <option value="Polar Bear">
+                        <option value="Owl">
+                        <option value="Hawk">
+                        <option value="Falcon">
+                        <option value="Vulture">
+                        <option value="Shark">
+                        <option value="Whale">
+                        <option value="Dolphin">
+                        <option value="Rabbit">
+                        <option value="Panther">
+                        <option value="Hyena">
+                        <option value="Mongoose">
+                        <option value="Porcupine">
+                        <option value="Wombat">
+                        <option value="Meerkat">
+                        <option value="Otter">
+                        <option value="Hedgehog">
+                        <option value="Possum">
+                        <option value="Chipmunk">
+                        <option value="Raccoon">
+                        <option value="Jackal">
+                        <option value="Hare">
+                        <option value="Mole">
+                        <option value="Alligator">
+                        <option value="Monitor Lizard">
+                        <option value="Oryx">
+                        <option value="Elk">
+                        <option value="Badger">
+                        <option value="Dinosaur">
+                        <option value="Pangolin">
+                        <option value="Okapi">
+                        <option value="Camel">
+                        <option value="Wild cat">
+                        <option value="Coyote">
+                        <option value="Aardvark">
+                        <option value="Antelope">
+                        <option value="Alpine Goat">
+                        <option value="Komodo Dragon">
+                        <option value="Bearded Dragon">
+                        <option value="Royal Bengal Tiger">
+                        <option value="Flying Squirrel">
+                        <option value="Emu">
+                        <option value="Eel">
+                        <option value="Asiatic Lion">
+                        <option value="Armadillo">
+                        <option value="Beaver">
+                        <option value="Emperor Penguin">
+                        <option value="Baboon">
+                        <option value="Bat">
+                        <option value="Chameleon">
+                        <option value="Bull">
+                        <option value="Giant Panda">
+                        <option value="Chihuahua">
+                        <option value="Orangutan">
+                        <option value="Chinchillas">
+                        <option value="Iguana">
+                        <option value="Ibis">
+                        <option value="Ibex">
+                        <option value="King Cobra">
+                        <option value="Jellyfish">
+                        <option value="Goose">
+                        <option value="Walrus">
+                        <option value="Seal">
+                        <option value="Skink">
+                        <option value="Markhor">
+                        <option value="Bull Shark">
+                        <option value="Arctic Wolf">
+                        <option value="Bulbul">
+                        <option value="Bobcat">
+                        <option value="Guinea Pig">
+                        <option value="Yak">
+                        <option value="Reindeer">
+                        <option value="Puma">
+                        <option value="Marten">
+                        <option value="Squirrel Monkey">
+                        <option value="Caracal">
+                    </datalist>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="count">Count</label>
+                    <input type="number" name="count" min="1" value="1" required>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="behavior">Behavior</label>
+                    <input type="text" name="behavior" list="behavior-list" placeholder="e.g. Hunting">
+                    <datalist id="behavior-list">
+                        <option value="Hunting">
+                        <option value="Eating">
+                        <option value="Sleeping">
+                        <option value="Resting">
+                        <option value="Socializing">
+                        <option value="Playing">
+                        <option value="Mating">
+                        <option value="Fighting">
+                        <option value="Territorial Display">
+                        <option value="Grooming">
+                        <option value="Migrating">
+                        <option value="Stereotypical (Pacing)">
+                        <option value="Stereotypical (Head bobbing)">
+                        <option value="Abnormal">
+                        <option value="Natural">
+                        <option value="Unnatural">
+                    </datalist>
+                </div>
+                <!-- Lat/Lng will be auto-filled from map click -->
+                <input type="hidden" name="latitude" id="form-lat">
+                <input type="hidden" name="longitude" id="form-lng">
+
+                <div class="form-group">
+                    <label data-i18n="image">Image</label>
+                    <input type="file" name="image" accept="image/*">
+                </div>
+                <button type="submit" class="btn-primary" data-i18n="save">Save</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="modal hidden">
+        <div class="modal-content glass-panel">
+            <span class="close-modal">&times;</span>
+            <h2 id="auth-title">Login</h2>
+            <form id="auth-form">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="password">Password</label>
+                    <input type="password" name="password" required>
+                </div>
+                <!-- Name field for register (hidden by default) -->
+                <div class="form-group hidden" id="name-group">
+                    <label data-i18n="name">Name</label>
+                    <input type="text" name="name">
+                </div>
+
+                <button type="submit" class="btn-primary">Submit</button>
+                <p class="switch-auth">
+                    <span data-i18n="noAccount">No account?</span>
+                    <a href="#" id="switch-to-register" data-i18n="register">Register</a>
+                </p>
+            </form>
+        </div>
     </div>
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-     crossorigin=""></script>
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 
-    <!-- Main App Logic (Module) -->
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- App Scripts -->
     <script type="module" src="/src/app.js"></script>
 </body>
+
 </html>

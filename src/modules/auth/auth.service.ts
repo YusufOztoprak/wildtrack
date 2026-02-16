@@ -1,31 +1,51 @@
+import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import prisma from '../../config/db';
-import { signToken } from '../../utils/jwt';
-import { z } from 'zod';
-import { registerSchema, loginSchema } from './auth.schema';
+import jwt from 'jsonwebtoken';
+import { RegisterInput, LoginInput } from './auth.schema';
+import env from '../../utils/env';
 
-export const register = async (data: z.infer<typeof registerSchema>) => {
-  const hashedPassword = await bcrypt.hash(data.password, 10);
+const prisma = new PrismaClient();
+
+export const register = async (input: RegisterInput) => {
+  const existingUser = await prisma.user.findUnique({
+    where: { email: input.email },
+  });
+
+  if (existingUser) {
+    throw new Error('Bu email adresi zaten kullanımda.');
+  }
+
+  const hashedPassword = await bcrypt.hash(input.password, 10);
+
   const user = await prisma.user.create({
     data: {
-      email: data.email,
+      email: input.email,
       password: hashedPassword,
-      name: data.name,
+      name: input.name,
     },
   });
-  const token = signToken({ id: user.id, email: user.email });
-  return { user, token };
+
+  const token = jwt.sign({ userId: user.id }, env.JWT_SECRET, { expiresIn: '1d' });
+
+  return { user: { id: user.id, email: user.email, name: user.name }, token };
 };
 
-export const login = async (data: z.infer<typeof loginSchema>) => {
-  const user = await prisma.user.findUnique({ where: { email: data.email } });
+export const login = async (input: LoginInput) => {
+  const user = await prisma.user.findUnique({
+    where: { email: input.email },
+  });
+
   if (!user) {
-    throw new Error('Invalid credentials');
+    throw new Error('Geçersiz email veya şifre.');
   }
-  const isMatch = await bcrypt.compare(data.password, user.password);
-  if (!isMatch) {
-    throw new Error('Invalid credentials');
+
+  const isPasswordValid = await bcrypt.compare(input.password, user.password);
+
+  if (!isPasswordValid) {
+    throw new Error('Geçersiz email veya şifre.');
   }
-  const token = signToken({ id: user.id, email: user.email });
-  return { user, token };
+
+  const token = jwt.sign({ userId: user.id }, env.JWT_SECRET, { expiresIn: '1d' });
+
+  return { user: { id: user.id, email: user.email, name: user.name }, token };
 };

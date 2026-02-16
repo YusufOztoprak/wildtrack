@@ -1,13 +1,14 @@
 import { Router } from 'express';
-import * as observationController from './observation.controller';
-import { authenticate } from '../../middlewares/auth.middleware';
+import { createObservationHandler, getObservationsHandler, getStatsHandler } from './observation.controller';
+import { protect } from '../../middlewares/auth.middleware';
+import { upload } from '../../middlewares/upload.middleware';
 
 const router = Router();
 
-router.post('/', authenticate, observationController.createObservation);
-router.get('/', observationController.getObservations);
-router.get('/nearby', observationController.getNearbyObservations); // New route
-router.get('/:id', observationController.getObservationById);
-router.delete('/:id', authenticate, observationController.deleteObservation);
+// İstatistik endpoint'i (diğerlerinden önce tanımlanmalı ki /:id ile çakışmasın)
+router.get('/stats', getStatsHandler);
+
+router.post('/', protect, upload.single('image'), createObservationHandler);
+router.get('/', getObservationsHandler);
 
 export default router;
