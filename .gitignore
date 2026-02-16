@@ -13,6 +13,7 @@ dist
 .vscode
 *.swp
 .DS_Store
+Thumbs.db
 
 # User Uploads (Keep the folder, ignore the files)
 frontend/public/uploads/*
