@@ -9,6 +9,15 @@ import { AuthRequest } from '../../middlewares/auth.middleware';
 
 const prisma = new PrismaClient();
 
+// Resolves a taxon by scientific name, creating a minimal SPECIES record if not yet in the local table.
+async function findOrCreateTaxon(name: string, commonName?: string | null) {
+  return prisma.taxon.upsert({
+    where:  { name },
+    update: {},
+    create: { name, commonName: commonName ?? null, rank: 'SPECIES' },
+  });
+}
+
 export const getObservations = async (req: AuthRequest, res: Response) => {
   try {
     const { lat, lng, radius } = req.query;
@@ -28,7 +37,7 @@ export const getObservations = async (req: AuthRequest, res: Response) => {
 
 export const createObservation = async (req: AuthRequest, res: Response) => {
   try {
-    const { taxonId, latitude, longitude, description, observedAt, behavior } = req.body;
+    const { taxonId, taxonName, latitude, longitude, description, observedAt, behavior } = req.body;
     const authorId = req.user!.userId;
     const lat = parseFloat(latitude);
     const lng = parseFloat(longitude);
@@ -52,7 +61,9 @@ export const createObservation = async (req: AuthRequest, res: Response) => {
 
     // ── 2. Taxon lookup (name needed for scientific validation) ───────────────
     let taxon = null;
-    if (taxonId) {
+    if (taxonName) {
+      taxon = await findOrCreateTaxon(taxonName);
+    } else if (taxonId) {
       taxon = await prisma.taxon.findUnique({ where: { id: parseInt(taxonId, 10) } });
     }
 
@@ -106,17 +117,25 @@ export const addIdentification = async (req: AuthRequest, res: Response) => {
   try {
     const observationId = parseInt(req.params.observationId, 10);
     const userId = req.user!.userId;
-    const { taxonId, body } = req.body;
+    const { taxonId, taxonName, body } = req.body;
 
-    if (!taxonId) {
-      return res.status(400).json({ error: 'Taxon ID is required' });
+    if (!taxonId && !taxonName) {
+      return res.status(400).json({ error: 'Taxon is required' });
+    }
+
+    let resolvedTaxonId: number;
+    if (taxonName) {
+      const taxon = await findOrCreateTaxon(taxonName);
+      resolvedTaxonId = taxon.id;
+    } else {
+      resolvedTaxonId = parseInt(taxonId, 10);
     }
 
     const identification = await prisma.identification.create({
       data: {
         observationId,
         userId,
-        taxonId: parseInt(taxonId, 10),
+        taxonId: resolvedTaxonId,
         body,
       },
       include: { taxon: true, user: true },

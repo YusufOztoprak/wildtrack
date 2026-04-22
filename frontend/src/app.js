@@ -704,8 +704,16 @@ window.searchTaxa = function(query, dropdownId, hiddenInputId) {
 
   searchTimeout = setTimeout(async () => {
     try {
-      const res  = await fetch(`/api/observations/taxa?query=${encodeURIComponent(query)}`);
-      const taxa = await res.json();
+      const res  = await fetch(
+        `https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(query)}&per_page=10&rank=species`,
+        { headers: { 'Accept': 'application/json' } }
+      );
+      const data = await res.json();
+      const taxa = (data.results ?? []).map(r => ({
+        id: r.id,
+        name: r.name,
+        commonName: r.preferred_common_name ?? null,
+      }));
 
       dropdown.innerHTML = taxa.length === 0
         ? '<div class="p-3 text-sm text-slate-500 text-center">No species found</div>'
@@ -721,7 +729,7 @@ window.searchTaxa = function(query, dropdownId, hiddenInputId) {
           </div>
           <span class="text-xs font-semibold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">Select</span>`;
         div.onclick = () => {
-          document.getElementById(hiddenInputId).value = t.id;
+          document.getElementById(hiddenInputId).value = JSON.stringify({ id: t.id, name: t.name, commonName: t.commonName });
           const visibleId = dropdownId === 'idDropdown' ? 'idSearch' : 'newObsTaxon';
           const visibleEl = document.getElementById(visibleId);
           if (visibleEl) visibleEl.value = t.commonName ?? t.name;
@@ -804,14 +812,19 @@ document.getElementById('submitObservation').addEventListener('click', async () 
   btn.innerHTML = `<svg class="animate-spin h-5 w-5 text-white inline-block mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>Uploading…`;
 
   const latLng   = pendingLatLng;
-  const taxonId  = document.getElementById('selectedTaxonId').value;
+  const taxonRaw = document.getElementById('selectedTaxonId').value;
   const desc     = document.getElementById('newObsDesc').value;
   const behavior = document.getElementById('newObsBehavior').value;
   const fileEl   = document.getElementById('photoInput');
 
+  let taxonName = null;
+  if (taxonRaw) {
+    try { taxonName = JSON.parse(taxonRaw).name; } catch { taxonName = taxonRaw; }
+  }
+
   const formData = new FormData();
   if (fileEl.files[0]) formData.append('image', fileEl.files[0]);
-  if (taxonId)         formData.append('taxonId', taxonId);
+  if (taxonName)       formData.append('taxonName', taxonName);
   if (desc)            formData.append('description', desc);
   if (behavior)        formData.append('behavior', behavior);
   formData.append('latitude',   latLng.lat);
@@ -913,16 +926,19 @@ window.submitComment = async function(obsId) {
 // ─── SUBMIT IDENTIFICATION ────────────────────────────────────────────────────
 
 window.submitID = async function(obsId) {
-  const taxonId = document.getElementById('selectedIdTaxon')?.value;
-  const body    = document.getElementById('idBody')?.value;
+  const taxonRaw = document.getElementById('selectedIdTaxon')?.value;
+  const body     = document.getElementById('idBody')?.value;
 
-  if (!taxonId) { showToast('Please select a species from the dropdown first.', 'warning'); return; }
+  if (!taxonRaw) { showToast('Please select a species from the dropdown first.', 'warning'); return; }
+
+  let taxonName = null;
+  try { taxonName = JSON.parse(taxonRaw).name; } catch { taxonName = taxonRaw; }
 
   try {
     const res = await authFetch(`/api/observations/${obsId}/identifications`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ taxonId, body }),
+      body:    JSON.stringify({ taxonName, body }),
     });
     if (!res.ok) throw new Error('Failed to submit identification');
 
