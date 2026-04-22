@@ -114,7 +114,7 @@ async function main() {
       longitude: 14.0,
       observedAt: new Date(Date.now() - 86400000 * 1),
       media: {
-        create: [{ url: 'https://res.cloudinary.com/dneo1twzx/image/upload/v1776847310/wildtrack/dtl7u4vundt6idmuu4tp.jpg' }],
+        create: [{ url: 'https://res.cloudinary.com/dneo1twzx/image/upload/v1776855300/wildtrack/gjabyhzwnljks5ysvlvn.jpg' }],
       },
     },
   });
