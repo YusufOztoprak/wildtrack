@@ -1,75 +1,105 @@
-# WildTrack - Community Wildlife Observation Platform 🌍🐾
+# WildTrack
 
-WildTrack is a professional, open-source wildlife observation platform heavily inspired by iNaturalist. It allows users to record wildlife sightings, upload media, and collaboratively identify species through a community-driven consensus algorithm.
+![TypeScript](https://img.shields.io/badge/TypeScript-5.4-3178c6?logo=typescript&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169e1?logo=postgresql&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-![WildTrack Banner](https://images.unsplash.com/photo-1501705388883-4ed8a543392c?auto=format&fit=crop&q=80&w=1200)
+Community wildlife observation platform with AI-assisted species identification and scientific validation. Inspired by iNaturalist.
 
-## 🌟 Key Features
+**Live demo:** https://wildtrack-vud7.onrender.com
 
-*   **Hierarchical Taxonomy System:** Biological classification engine (Kingdom -> Species) powered by PostgreSQL.
-*   **Community Consensus Algorithm:** Observations automatically graduate to `RESEARCH_GRADE` when the community reaches >66% agreement (minimum 2 votes) on a species identification.
-*   **Rich Media Support:** Users can attach multiple images to a single observation.
-*   **Interactive Mapping:** View global observations on a sleek Leaflet/Mapbox interface.
-*   **Real-time Timeline:** Modal views displaying chronologically ordered community comments and ID suggestions.
+---
 
-## 🛠 Tech Stack
+## Features
 
-*   **Backend:** Node.js, Express, TypeScript
-*   **Database:** PostgreSQL with PostGIS (Spatial queries)
-*   **ORM:** Prisma
-*   **Frontend:** Vanilla JavaScript, HTML5, Tailwind CSS, Leaflet.js
-*   **Infrastructure:** Docker & Docker Compose
+- **AI species identification** — uploads photos to the iNaturalist Vision API for automated species prediction with confidence scores
+- **Scientific validation engine** — checks geographic plausibility, validates behavior against species traits (aquatic/terrestrial/avian), cross-references AI prediction against user-reported species
+- **Wallace Line classifier** — determines whether an observation falls in the Asian or Australasian biogeographic realm using line-segment interpolation
+- **Community consensus** — promotes observations to `RESEARCH_GRADE` when a taxon reaches ≥2 community identifications with >66% agreement
+- **Interactive map** — Leaflet.js map with photo markers; click any marker to open a full observation panel
+- **Wikipedia species panel** — inline species info pulled from the Wikipedia API on observation detail view
+- **Cloudinary photo storage** — images uploaded as buffers directly to Cloudinary; original quality preserved
+- **JWT authentication** — register/login with bcrypt-hashed passwords; protected API routes
 
-## 🚀 Getting Started (Local Development)
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Runtime | Node.js 18, TypeScript |
+| Framework | Express.js |
+| Database | PostgreSQL 15 + Prisma ORM |
+| Frontend | Vanilla JS SPA, Leaflet.js, Tailwind CSS |
+| Storage | Cloudinary |
+| AI | iNaturalist Vision API |
+| Auth | JWT + bcryptjs |
+
+## Getting Started
 
 ### Prerequisites
-*   Node.js (v18+)
-*   Docker & Docker Compose (for PostgreSQL database)
 
-### 1. Clone & Install
+- Node.js 18+
+- Docker (for local PostgreSQL)
+
+### Setup
+
 ```bash
-git clone https://github.com/yourusername/wildtrack.git
+# 1. Clone and install
+git clone https://github.com/YusufOztoprak/wildtrack.git
 cd wildtrack
 npm install
-```
 
-### 2. Environment Setup
-Copy the example environment file:
-```bash
+# 2. Configure environment
 cp .env.example .env
-```
-*(Ensure Docker is running)*
+# Fill in: JWT_SECRET, CLOUDINARY_*, INATURALIST_API_TOKEN
 
-### 3. Start Database & Migrate
-Launch the Postgres container and push the schema:
-```bash
+# 3. Start database
 docker-compose up -d
 npx prisma generate
-npx prisma db push --force-reset
-```
+npx prisma db push
 
-### 4. Seed Initial Data
-Populate the taxonomy tree and create sample users/observations:
-```bash
-npm run seed
-```
+# 4. Seed with sample observations
+npx ts-node src/utils/seed.ts
 
-### 5. Run the Server
-```bash
+# 5. Start dev server
 npm run dev
 ```
-Open `http://localhost:3000` in your browser!
 
-## 🧠 Architecture Details
+Open http://localhost:3000
 
-### The Consensus Algorithm (`community.service.ts`)
-When a user suggests an ID (`Identification`), the system recalculates the observation's status:
-1. Groups all IDs by `taxonId`.
-2. Finds the taxon with the most votes.
-3. If `votes >= 2` AND `votes > (total_ids * 0.66)`, status upgrades to `RESEARCH_GRADE`. Otherwise, it remains `NEEDS_ID`.
+### Environment Variables
 
-## 🤝 Contributing
-Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change.
+| Variable | Required | Description |
+|---|---|---|
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `JWT_SECRET` | Yes | Secret for signing JWTs |
+| `CLOUDINARY_CLOUD_NAME` | Yes | Cloudinary cloud name |
+| `CLOUDINARY_API_KEY` | Yes | Cloudinary API key |
+| `CLOUDINARY_API_SECRET` | Yes | Cloudinary API secret |
+| `INATURALIST_API_TOKEN` | No | iNaturalist Vision API token — AI prediction skipped if unset |
+| `PORT` | No | Defaults to 3000 |
 
-## 📜 License
-[MIT](https://choosealicense.com/licenses/mit/)
+## API
+
+```
+POST   /api/auth/register
+POST   /api/auth/login
+
+GET    /api/observations
+POST   /api/observations          # multipart/form-data with photo
+GET    /api/observations/:id
+POST   /api/observations/:id/identifications
+POST   /api/observations/:id/comments
+GET    /api/observations/taxa
+```
+
+## Deployment
+
+The app is deployed as a monolith on Render using the included `Dockerfile`. On startup it runs `prisma db push` to sync the schema and seeds the database if empty.
+
+Build command: `npm install && npm run build`  
+Start command: `npx prisma db push && node dist/utils/seed.js && node dist/server.js`
+
+## License
+
+MIT
