@@ -59,21 +59,26 @@ export const createObservation = async (req: AuthRequest, res: Response) => {
     // ── 3. Scientific validation (only when a taxon is identified) ───────────
     let validationResult = null;
     if (taxon) {
-      validationResult = await validateScientific(
-        taxon.name,
-        behavior ?? '',
-        1,
-        lat,
-        lng,
-        aiPrediction,
-      );
+      try {
+        validationResult = await validateScientific(
+          taxon.name,
+          behavior ?? '',
+          1,
+          lat,
+          lng,
+          aiPrediction,
+        );
 
-      if (validationResult.status === 'rejected') {
-        return res.status(400).json({
-          error: validationResult.issues[0],
-          issues: validationResult.issues,
-          validationStatus: 'rejected',
-        });
+        if (validationResult.status === 'rejected') {
+          return res.status(400).json({
+            error: validationResult.issues[0],
+            issues: validationResult.issues,
+            validationStatus: 'rejected',
+          });
+        }
+      } catch (validationError) {
+        console.error('Scientific validation error (degraded gracefully):', validationError);
+        // Validation could not run — observation proceeds unvalidated rather than returning 500.
       }
     }
 
