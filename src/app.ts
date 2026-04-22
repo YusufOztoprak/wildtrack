@@ -24,11 +24,12 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://unpkg.com", "https://cdnjs.cloudflare.com"],
-            imgSrc: ["'self'", "data:", "blob:", "https://*.basemaps.cartocdn.com", "https://unpkg.com"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://cdn.tailwindcss.com"],
+            scriptSrcAttr: ["'unsafe-inline'"], // allow onclick="..." attributes in HTML
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://unpkg.com", "https://cdnjs.cloudflare.com", "https://cdn.tailwindcss.com"],
+            imgSrc: ["'self'", "data:", "blob:", "https://*.basemaps.cartocdn.com", "https://unpkg.com", "https://*.tile.openstreetmap.org", "https://res.cloudinary.com", "https://api.dicebear.com", "https://images.unsplash.com", "https://upload.wikimedia.org", "https://*.wikimedia.org", "https://inaturalist-open-data.s3.amazonaws.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
-            connectSrc: ["'self'"],
+            connectSrc: ["'self'", "https://*.tile.openstreetmap.org", "https://*.basemaps.cartocdn.com", "https://en.wikipedia.org"],
         },
     },
     crossOriginResourcePolicy: { policy: "cross-origin" }
@@ -39,21 +40,25 @@ app.use(cors());
 app.use(express.json());
 
 // --- Frontend Static Files ---
+// __dirname is <project-root>/dist at runtime; step up one level to reach frontend/
+const frontendPublic = path.join(__dirname, '../frontend/public');
+const frontendSrc    = path.join(__dirname, '../frontend/src');
+
 // 1. Serve 'public' at root (for index.html, styles.css, uploads)
-app.use(express.static(path.join(process.cwd(), 'frontend/public')));
+app.use(express.static(frontendPublic));
 
 // 2. Serve 'src' at /src (for app.js, i18n.js modules)
-app.use('/src', express.static(path.join(process.cwd(), 'frontend/src')));
+app.use('/src', express.static(frontendSrc));
 
-// --- API Rotaları ---
+// --- API Routes ---
 app.use('/api/auth', authRoutes);
 app.use('/api/observations', observationRoutes);
 
-app.use(errorHandler);
-
-// Serve index.html for any other route (SPA support)
+// Serve index.html for any non-API route (SPA support)
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/public/index.html'));
+    res.sendFile(path.join(frontendPublic, 'index.html'));
 });
+
+app.use(errorHandler);
 
 export default app;

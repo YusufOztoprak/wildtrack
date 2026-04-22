@@ -1,64 +1,58 @@
-// Mock AI Service
-// In a real scenario, this would call TensorFlow.js or an external API (OpenAI, HuggingFace)
+export interface AIPrediction {
+  species: string;
+  commonName: string | null;
+  confidence: number;
+  taxonId: number | null;
+}
 
-export const predictSpecies = async (imagePath: string): Promise<{ species: string; confidence: number } | null> => {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
+export const predictSpecies = async (buffer: Buffer, mimetype: string): Promise<AIPrediction | null> => {
+  const token = process.env.INATURALIST_API_TOKEN;
+  if (!token) {
+    console.warn('[iNaturalist] INATURALIST_API_TOKEN not set — skipping AI prediction.');
+    return null;
+  }
 
-    // Mock Logic for "All Wild Animals"
-    // If the filename contains the species name, we confirm it with high confidence.
-    // This allows the user to demo ANY animal by just naming the file correctly.
-    // e.g. "lion-attack.jpg" -> "Lion"
+  console.log('[iNaturalist] Sending image buffer, size:', buffer.byteLength, 'mimetype:', mimetype);
 
-    // Extract filename from path
-    const path = await import('path');
-    const filename = path.basename(imagePath).toLowerCase();
+  const formData = new FormData();
+  const blob = new Blob([buffer], { type: mimetype });
+  formData.append('image', blob, 'photo.jpg');
 
-    // Check if filename contains a known animal name from a simple heuristic
-    // (In a real app, this would be a real AI model)
-    const knownAnimals = [
-        'wolf', 'bear', 'eagle', 'lion', 'tiger', 'leopard', 'cheetah',
-        'elephant', 'giraffe', 'zebra', 'rhino', 'hippo', 'crocodile',
-        'snake', 'fox', 'deer', 'moose', 'bison', 'boar', 'lynx',
-        'cougar', 'jaguar', 'monkey', 'gorilla', 'chimpanzee', 'kangaroo',
-        'koala', 'panda', 'polar bear', 'owl', 'hawk', 'falcon',
-        'vulture', 'shark', 'whale', 'dolphin', 'rabbit', 'panther', 'hyena',
-        'wild boar', 'rhinoceros', 'mongoose', 'porcupine', 'wombat', 'meerkat',
-        'otter', 'hedgehog', 'possum', 'chipmunk', 'raccoon', 'jackal', 'hare',
-        'mole', 'alligator', 'monitor lizard', 'oryx', 'elk', 'badger', 'dinosaur',
-        'pangolin', 'okapi', 'camel', 'wild cat', 'coyote', 'aardvark', 'antelope',
-        'alpine goat', 'komodo dragon', 'bearded dragon', 'royal bengal tiger',
-        'flying squirrel', 'emu', 'eel', 'asiatic lion', 'armadillo', 'beaver',
-        'emperor penguin', 'baboon', 'bat', 'chameleon', 'bull', 'giant panda',
-        'chihuahua', 'orangutan', 'chinchillas', 'iguana', 'ibis', 'ibex',
-        'king cobra', 'jellyfish', 'goose', 'walrus', 'seal', 'skink', 'markhor',
-        'bull shark', 'arctic wolf', 'bulbul', 'bobcat', 'guinea pig', 'yak',
-        'reindeer', 'puma', 'marten', 'squirrel monkey', 'caracal'
-    ];
+  let res: Response;
+  try {
+    res = await fetch('https://api.inaturalist.org/v1/computervision/score_image', {
+      method: 'POST',
+      headers: { 'Authorization': token },
+      body: formData,
+    });
+  } catch (err) {
+    console.error('[iNaturalist] Network error:', err);
+    return null;
+  }
 
-    for (const animal of knownAnimals) {
-        if (filename.includes(animal)) {
-            // Capitalize first letter
-            const speciesName = animal.charAt(0).toUpperCase() + animal.slice(1);
-            return { species: speciesName, confidence: 0.96 };
-        }
-    }
+  console.log('[iNaturalist] HTTP status:', res.status);
 
-    // Mock Logic for "Trap" words (Non-Animals)
-    // If the file is named "car.jpg", "building.jpg", etc., we simulate a high-confidence MATCH
-    // for a non-animal object. This allows testing the "Security Block" feature.
-    const trapObjects = ['car', 'building', 'person', 'bike', 'plane', 'house', 'city'];
-    for (const obj of trapObjects) {
-        if (filename.includes(obj)) {
-            // Capitalize
-            const objectName = obj.charAt(0).toUpperCase() + obj.slice(1);
-            return { species: objectName, confidence: 0.98 }; // High confidence "It is a Car"
-        }
-    }
+  const text = await res.text();
+  console.log('[iNaturalist] Raw response body:', text);
 
-    // Default strict fallback
-    return {
-        species: 'Unidentified Object',
-        confidence: 0.2
-    };
+  let parsed: any;
+  try {
+    parsed = JSON.parse(text);
+  } catch (parseErr) {
+    console.error('[iNaturalist] JSON parse error:', parseErr);
+    return null;
+  }
+
+  const top = parsed.results?.[0];
+  if (!top) {
+    console.warn('[iNaturalist] No results in response. Full payload:', JSON.stringify(parsed, null, 2));
+    return null;
+  }
+
+  return {
+    species: top.taxon?.name ?? 'Unknown',
+    commonName: top.taxon?.english_common_name ?? top.taxon?.name ?? null,
+    confidence: top.combined_score ?? 0,
+    taxonId: top.taxon?.id ?? null,
+  };
 };

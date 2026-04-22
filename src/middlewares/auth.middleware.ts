@@ -2,7 +2,12 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '../utils/jwt';
 
 export interface AuthRequest extends Request {
-  user?: any;
+  user?: {
+    userId: number;
+    email: string;
+    iat: number;
+    exp: number;
+  };
 }
 
 export const authenticate = (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -15,11 +20,11 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
   const token = authHeader.split(' ')[1];
   const decoded = verifyToken(token);
 
-  if (!decoded) {
+  if (!decoded || typeof decoded === 'string') {
     return res.status(401).json({ message: 'Invalid token' });
   }
 
-  req.user = decoded;
+  req.user = decoded as { userId: number; email: string; iat: number; exp: number; };
   next();
 };
 

@@ -1,299 +1,255 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WildTrack - Wildlife Observation System</title>
-
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-
-    <!-- FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="/src/styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WildTrack - Community Observation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { margin:0; padding:0; display:flex; flex-direction:column; height:100vh; background:#f8fafc; font-family:'Inter',sans-serif; }
+    #map { flex-grow:1; width:100%; z-index:1; }
+    .custom-scrollbar::-webkit-scrollbar { width:8px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background:transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:8px; border:2px solid transparent; background-clip:padding-box; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background:#94a3b8; }
+    .observation-marker { background:white; border:3px solid #10b981; border-radius:50%; overflow:hidden; box-shadow:0 10px 15px -3px rgb(0 0 0/.2),0 4px 6px -4px rgb(0 0 0/.1); transition:all .3s cubic-bezier(.4,0,.2,1); cursor:pointer; }
+    .observation-marker:hover { transform:scale(1.15) translateY(-4px); z-index:1000!important; border-color:#059669; box-shadow:0 20px 25px -5px rgb(0 0 0/.2),0 8px 10px -6px rgb(0 0 0/.1); }
+    .observation-marker img { width:100%; height:100%; object-fit:cover; }
+    .map-center-reticle { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:1000; pointer-events:none; display:none; }
+    .map-center-reticle.active { display:flex; }
+  </style>
 </head>
+<body class="antialiased text-slate-800">
 
-<body>
-
-    <!-- Navbar / Header -->
-    <header class="glass-header">
-        <div class="logo">
-            <i class="fa-solid fa-paw"></i> WildTrack
+  <!-- Header -->
+  <header class="bg-gradient-to-r from-emerald-800 to-teal-700 text-white shadow-lg z-10 relative">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
+          <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </div>
-        <div class="header-controls">
-            <button id="add-obs-btn" class="btn-primary">
-                <i class="fa-solid fa-plus"></i> <span data-i18n="addObservation">Add Observation</span>
-            </button>
-            <div class="lang-switch">
-                <button class="lang-btn active" data-lang="en">EN</button>
-                <button class="lang-btn" data-lang="tr">TR</button>
-            </div>
-            <div id="auth-section">
-                <!-- Dynamically filled -->
-                <button id="login-btn" class="btn-secondary" data-i18n="login">Login</button>
-            </div>
-        </div>
-    </header>
-
-    <!-- Main Map Container -->
-    <div id="map"></div>
-
-    <!-- Filter / Stats Panel (Overlay) -->
-    <div class="panel-overlay left-panel">
-        <h3 data-i18n="filters">Filters</h3>
-        <div class="filter-group">
-            <label data-i18n="species">Species</label>
-            <select id="species-filter">
-                <option value="all" data-i18n="all">All</option>
-                <!-- Dynamic options -->
-            </select>
-        </div>
-        <div class="filter-group">
-            <label data-i18n="radius">Radius (km)</label>
-            <input type="range" id="radius-filter" min="1" max="100" value="50">
-            <span id="radius-val">50 km</span>
-        </div>
-
-        <div class="filter-group">
-            <label>Heatmap</label>
-            <button id="toggle-heatmap" class="btn-secondary" style="width:100%">
-                <i class="fa-solid fa-fire"></i> Toggle Heatmap
-            </button>
-        </div>
-
-        <hr style="border: 1px solid var(--glass-border); margin: 1rem 0;">
-
-        <button id="show-stats-btn" class="btn-primary" style="width:100%">
-            <i class="fa-solid fa-chart-pie"></i> <span data-i18n="stats">Stats</span>
+        <h1 class="text-2xl font-bold tracking-tight">WildTrack <span class="font-normal text-emerald-200 text-sm hidden sm:inline-block ml-2">Community</span></h1>
+      </div>
+      <nav class="flex items-center gap-3 sm:gap-4">
+        <!-- Feed toggle -->
+        <button onclick="toggleFeed()" class="font-medium text-emerald-100 hover:text-white transition-colors hidden sm:flex items-center gap-1.5 text-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+          Feed
         </button>
+
+        <!-- Logged-out state -->
+        <button id="headerLoginBtn" onclick="openAuthModal()" class="text-sm font-semibold text-emerald-100 hover:text-white transition-colors px-3 py-1.5 rounded-full border border-white/30 hover:border-white/60 hidden sm:block">Sign In</button>
+
+        <!-- Logged-in state -->
+        <div id="headerUserArea" class="hidden items-center gap-2">
+          <span id="headerUserName" class="text-sm font-medium text-emerald-100 hidden sm:block truncate max-w-[120px]"></span>
+          <button onclick="logout()" class="text-xs text-emerald-300 hover:text-white transition-colors hidden sm:block">Logout</button>
+        </div>
+
+        <!-- Add Observation -->
+        <button onclick="openAddObservation()" class="bg-white text-emerald-700 hover:bg-emerald-50 px-4 py-2 rounded-full font-semibold shadow-md transition-all flex items-center gap-2 transform hover:-translate-y-0.5 text-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          <span class="hidden sm:inline">Add Observation</span>
+          <span class="sm:hidden">Add</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Feed Sidebar -->
+  <div id="feedSidebar" class="fixed left-0 z-[600] bg-white shadow-2xl flex flex-col transform -translate-x-full transition-transform duration-300 ease-in-out" style="top:64px; bottom:0; width:320px;">
+    <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between shrink-0">
+      <h2 class="font-bold text-slate-800 text-base">Recent Observations</h2>
+      <button onclick="toggleFeed()" class="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="feedList" class="flex-1 overflow-y-auto custom-scrollbar"></div>
+  </div>
+
+  <!-- Map Container -->
+  <div class="relative flex-grow">
+    <div id="map" class="w-full h-full"></div>
+    <div id="centerReticle" class="map-center-reticle flex-col items-center">
+      <div class="w-8 h-8 rounded-full border-2 border-emerald-500 border-dashed animate-spin"></div>
+      <div class="w-2 h-2 bg-emerald-600 rounded-full absolute"></div>
+      <div class="mt-4 bg-gray-900/80 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm shadow-lg font-medium tracking-wide">Pan map to set location</div>
     </div>
 
-    <!-- Stats Modal -->
-    <div id="stats-modal" class="modal hidden">
-        <div class="modal-content glass-panel" style="max-width: 800px;">
-            <span class="close-modal">&times;</span>
-            <h2 data-i18n="stats">Statistics</h2>
-            <div class="charts-container" style="display: flex; gap: 20px; flex-wrap: wrap;">
-                <div style="flex: 1; min-width: 300px;">
-                    <h4 data-i18n="topSpecies">Top Species</h4>
-                    <canvas id="speciesChart"></canvas>
-                </div>
-                <!-- slide -->
-                <div style="flex: 1; min-width: 300px;">
-                    <h4 data-i18n="observationTrend">Observation Trend (Last 7 Days)</h4>
-                    <canvas id="trendChart"></canvas>
-                </div>
+    <!-- Location Picker Overlay -->
+    <div id="locationPickerOverlay" class="hidden absolute inset-0 z-[500] pointer-events-none">
+      <div class="absolute top-4 left-0 right-0 flex justify-center">
+        <div class="pointer-events-auto bg-slate-900/90 text-white px-5 py-2.5 rounded-full text-sm font-semibold shadow-xl backdrop-blur-sm flex items-center gap-3">
+          <svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          Click on the map to mark your observation location
+          <button onclick="cancelLocationPick()" class="ml-2 text-slate-300 hover:text-white transition-colors">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Location Confirm Panel -->
+    <div id="locationConfirmPanel" class="hidden absolute bottom-8 left-1/2 -translate-x-1/2 z-[500] pointer-events-auto" style="white-space:nowrap;">
+      <div class="bg-white rounded-2xl shadow-2xl p-4 flex items-center gap-4 border border-slate-100">
+        <div class="bg-emerald-100 p-2.5 rounded-xl shrink-0">
+          <svg class="w-5 h-5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/></svg>
+        </div>
+        <div>
+          <p class="text-sm font-bold text-slate-800">Pin placed</p>
+          <p id="selectedCoordDisplay" class="text-xs text-slate-500 font-mono mt-0.5"></p>
+        </div>
+        <div class="flex items-center gap-2 ml-1">
+          <button onclick="resetLocationPick()" class="text-xs text-slate-400 hover:text-slate-600 font-medium transition-colors">Re-pick</button>
+          <button onclick="confirmLocationAndOpenForm()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-2 rounded-xl shadow-md transition-all">Fill in details →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail Modal Container -->
+  <div id="detailModalContainer" class="hidden"></div>
+
+  <!-- ── AUTH MODAL ─────────────────────────────────────────────────────── -->
+  <div id="authModal" class="hidden fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h2 class="text-xl font-bold text-slate-800">Welcome to WildTrack</h2>
+            <p class="text-sm text-slate-500 mt-0.5">Join the community of wildlife observers</p>
+          </div>
+          <button onclick="closeAuthModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition-colors shrink-0 ml-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div class="flex p-1 bg-slate-100 rounded-lg mb-5">
+          <button id="loginTabBtn" onclick="switchAuthTab('login')" class="flex-1 text-sm font-semibold py-2 rounded-md bg-white text-slate-800 shadow-sm transition-all">Sign In</button>
+          <button id="registerTabBtn" onclick="switchAuthTab('register')" class="flex-1 text-sm font-semibold py-2 rounded-md text-slate-500 hover:text-slate-700 transition-all">Create Account</button>
+        </div>
+
+        <div id="authError" class="hidden bg-red-50 text-red-700 text-sm rounded-lg px-4 py-3 mb-4 border border-red-200"></div>
+
+        <!-- Login Form -->
+        <div id="loginForm" class="space-y-4">
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5">Email</label>
+            <input type="email" id="loginEmail" placeholder="you@example.com" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-slate-700 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5">Password</label>
+            <input type="password" id="loginPassword" placeholder="••••••••" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-slate-700 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow">
+          </div>
+          <button id="loginSubmitBtn" onclick="submitLogin()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-md transition-all text-sm">Sign In</button>
+        </div>
+
+        <!-- Register Form -->
+        <div id="registerForm" class="hidden space-y-4">
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5">Name</label>
+            <input type="text" id="registerName" placeholder="Your name" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-slate-700 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5">Email</label>
+            <input type="email" id="registerEmail" placeholder="you@example.com" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-slate-700 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5">Password</label>
+            <input type="password" id="registerPassword" placeholder="Min. 8 characters" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-slate-700 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow">
+          </div>
+          <button id="registerSubmitBtn" onclick="submitRegister()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-md transition-all text-sm">Create Account</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ADD OBSERVATION MODAL ──────────────────────────────────────────── -->
+  <div id="addObservationModal" class="hidden fixed inset-0 z-[2000] flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+        <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+          <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          New Observation
+        </h2>
+        <button onclick="document.getElementById('addObservationModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-2 rounded-full transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-5 max-h-[80vh] overflow-y-auto custom-scrollbar">
+        <!-- Species search -->
+        <div class="relative">
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">What did you see?</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
             </div>
+            <input type="text" id="newObsTaxon" placeholder="Search species (e.g. Red Fox)..." autocomplete="off" class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg shadow-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow text-sm">
+          </div>
+          <div id="taxonDropdown" class="bg-white border border-slate-200 rounded-lg shadow-xl mt-1 hidden max-h-48 overflow-y-auto absolute w-full z-50 divide-y divide-slate-100"></div>
+          <input type="hidden" id="selectedTaxonId">
+          <p class="mt-1.5 text-xs text-slate-500">Leave blank — the community can help identify it!</p>
         </div>
-    </div>
 
-    <!-- Toast Container -->
-    <div id="toast-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 3000;"></div>
-
-    <!-- Observation Modal -->
-    <div id="obs-modal" class="modal hidden">
-        <div class="modal-content glass-panel">
-            <span class="close-modal">&times;</span>
-            <h2 data-i18n="newObservation">New Observation</h2>
-            <form id="obs-form">
-                <div class="form-group">
-                    <label for="form-species" data-i18n="species">Species</label>
-                    <input type="text" id="form-species" name="species" list="species-list" required
-                        class="w-full p-2 border rounded glass-input" placeholder="Type or select species...">
-                    <datalist id="species-list">
-                        <option value="Wolf">
-                        <option value="Bear">
-                        <option value="Eagle">
-                        <option value="Lion">
-                        <option value="Tiger">
-                        <option value="Leopard">
-                        <option value="Cheetah">
-                        <option value="Elephant">
-                        <option value="Giraffe">
-                        <option value="Zebra">
-                        <option value="Rhino">
-                        <option value="Hippopotamus">
-                        <option value="Crocodile">
-                        <option value="Snake">
-                        <option value="Fox">
-                        <option value="Deer">
-                        <option value="Moose">
-                        <option value="Bison">
-                        <option value="Wild Boar">
-                        <option value="Lynx">
-                        <option value="Cougar">
-                        <option value="Jaguar">
-                        <option value="Monkey">
-                        <option value="Gorilla">
-                        <option value="Chimpanzee">
-                        <option value="Kangaroo">
-                        <option value="Koala">
-                        <option value="Panda">
-                        <option value="Polar Bear">
-                        <option value="Owl">
-                        <option value="Hawk">
-                        <option value="Falcon">
-                        <option value="Vulture">
-                        <option value="Shark">
-                        <option value="Whale">
-                        <option value="Dolphin">
-                        <option value="Rabbit">
-                        <option value="Panther">
-                        <option value="Hyena">
-                        <option value="Mongoose">
-                        <option value="Porcupine">
-                        <option value="Wombat">
-                        <option value="Meerkat">
-                        <option value="Otter">
-                        <option value="Hedgehog">
-                        <option value="Possum">
-                        <option value="Chipmunk">
-                        <option value="Raccoon">
-                        <option value="Jackal">
-                        <option value="Hare">
-                        <option value="Mole">
-                        <option value="Alligator">
-                        <option value="Monitor Lizard">
-                        <option value="Oryx">
-                        <option value="Elk">
-                        <option value="Badger">
-                        <option value="Dinosaur">
-                        <option value="Pangolin">
-                        <option value="Okapi">
-                        <option value="Camel">
-                        <option value="Wild cat">
-                        <option value="Coyote">
-                        <option value="Aardvark">
-                        <option value="Antelope">
-                        <option value="Alpine Goat">
-                        <option value="Komodo Dragon">
-                        <option value="Bearded Dragon">
-                        <option value="Royal Bengal Tiger">
-                        <option value="Flying Squirrel">
-                        <option value="Emu">
-                        <option value="Eel">
-                        <option value="Asiatic Lion">
-                        <option value="Armadillo">
-                        <option value="Beaver">
-                        <option value="Emperor Penguin">
-                        <option value="Baboon">
-                        <option value="Bat">
-                        <option value="Chameleon">
-                        <option value="Bull">
-                        <option value="Giant Panda">
-                        <option value="Chihuahua">
-                        <option value="Orangutan">
-                        <option value="Chinchillas">
-                        <option value="Iguana">
-                        <option value="Ibis">
-                        <option value="Ibex">
-                        <option value="King Cobra">
-                        <option value="Jellyfish">
-                        <option value="Goose">
-                        <option value="Walrus">
-                        <option value="Seal">
-                        <option value="Skink">
-                        <option value="Markhor">
-                        <option value="Bull Shark">
-                        <option value="Arctic Wolf">
-                        <option value="Bulbul">
-                        <option value="Bobcat">
-                        <option value="Guinea Pig">
-                        <option value="Yak">
-                        <option value="Reindeer">
-                        <option value="Puma">
-                        <option value="Marten">
-                        <option value="Squirrel Monkey">
-                        <option value="Caracal">
-                    </datalist>
-                </div>
-                <div class="form-group">
-                    <label data-i18n="count">Count</label>
-                    <input type="number" name="count" min="1" value="1" required>
-                </div>
-                <div class="form-group">
-                    <label data-i18n="behavior">Behavior</label>
-                    <input type="text" name="behavior" list="behavior-list" placeholder="e.g. Hunting">
-                    <datalist id="behavior-list">
-                        <option value="Hunting">
-                        <option value="Eating">
-                        <option value="Sleeping">
-                        <option value="Resting">
-                        <option value="Socializing">
-                        <option value="Playing">
-                        <option value="Mating">
-                        <option value="Fighting">
-                        <option value="Territorial Display">
-                        <option value="Grooming">
-                        <option value="Migrating">
-                        <option value="Stereotypical (Pacing)">
-                        <option value="Stereotypical (Head bobbing)">
-                        <option value="Abnormal">
-                        <option value="Natural">
-                        <option value="Unnatural">
-                    </datalist>
-                </div>
-                <!-- Lat/Lng will be auto-filled from map click -->
-                <input type="hidden" name="latitude" id="form-lat">
-                <input type="hidden" name="longitude" id="form-lng">
-
-                <div class="form-group">
-                    <label data-i18n="image">Image</label>
-                    <input type="file" name="image" accept="image/*">
-                </div>
-                <button type="submit" class="btn-primary" data-i18n="save">Save</button>
-            </form>
+        <!-- Behavior -->
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Behavior observed <span class="font-normal text-slate-400">(optional)</span></label>
+          <input type="text" id="newObsBehavior" placeholder="e.g. foraging, flying, swimming, perching…" autocomplete="off"
+            class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-slate-700 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow">
         </div>
-    </div>
 
-    <!-- Auth Modal -->
-    <div id="auth-modal" class="modal hidden">
-        <div class="modal-content glass-panel">
-            <span class="close-modal">&times;</span>
-            <h2 id="auth-title">Login</h2>
-            <form id="auth-form">
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" name="email" required>
-                </div>
-                <div class="form-group">
-                    <label data-i18n="password">Password</label>
-                    <input type="password" name="password" required>
-                </div>
-                <!-- Name field for register (hidden by default) -->
-                <div class="form-group hidden" id="name-group">
-                    <label data-i18n="name">Name</label>
-                    <input type="text" name="name">
-                </div>
-
-                <button type="submit" class="btn-primary">Submit</button>
-                <p class="switch-auth">
-                    <span data-i18n="noAccount">No account?</span>
-                    <a href="#" id="switch-to-register" data-i18n="register">Register</a>
-                </p>
-            </form>
+        <!-- Photo upload -->
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Photo</label>
+          <label for="photoInput" class="block cursor-pointer">
+            <div id="photoDropZone" class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-emerald-400 hover:bg-emerald-50/40 transition-all relative overflow-hidden min-h-[120px] flex items-center justify-center">
+              <img id="photoPreview" class="hidden absolute inset-0 w-full h-full object-cover rounded-xl">
+              <div id="photoPreviewOverlay" class="hidden absolute inset-0 bg-black/40 rounded-xl items-center justify-center">
+                <button type="button" onclick="clearPhoto(event)" class="bg-white/90 text-red-600 font-semibold text-xs px-3 py-1.5 rounded-full hover:bg-white transition-colors shadow-md">Remove photo</button>
+              </div>
+              <div id="photoUploadHint" class="pointer-events-none">
+                <svg class="w-10 h-10 text-slate-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                <p class="text-sm font-medium text-slate-500">Click to upload a photo</p>
+                <p class="text-xs text-slate-400 mt-1">JPG, PNG up to 5 MB</p>
+              </div>
+            </div>
+          </label>
+          <input type="file" id="photoInput" accept="image/*" class="hidden">
         </div>
+
+        <!-- Notes -->
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Notes</label>
+          <textarea id="newObsDesc" rows="3" placeholder="Any interesting behaviors? Habitat details?" class="w-full p-3 border border-slate-300 rounded-lg shadow-sm text-slate-700 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow resize-none"></textarea>
+        </div>
+
+        <!-- Location display -->
+        <div class="bg-emerald-50 p-3.5 rounded-lg flex items-center gap-3 border border-emerald-100">
+          <div class="bg-emerald-100 p-2 rounded-lg shrink-0">
+            <svg class="w-4 h-4 text-emerald-700" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/></svg>
+          </div>
+          <div class="text-sm flex-1 min-w-0">
+            <span class="font-semibold text-emerald-900 block">Observation location</span>
+            <span id="obsLatLngText" class="text-emerald-700 font-mono text-xs break-all"></span>
+          </div>
+          <button onclick="changeLocation()" class="text-xs text-emerald-600 hover:text-emerald-800 font-semibold underline transition-colors shrink-0">Change</button>
+        </div>
+
+        <button id="submitObservation" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2">
+          <span>Upload Observation</span>
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+        </button>
+      </div>
     </div>
+  </div>
 
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+  <!-- Toast Container -->
+  <div id="toastContainer" class="fixed bottom-6 right-6 z-[4000] flex flex-col gap-2 pointer-events-none"></div>
 
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="/src/app.js"></script>
 
-    <!-- App Scripts -->
-    <script type="module" src="/src/app.js"></script>
 </body>
-
 </html>

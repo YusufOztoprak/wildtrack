@@ -1,14 +1,18 @@
 import { Router } from 'express';
-import { createObservationHandler, getObservationsHandler, getStatsHandler } from './observation.controller';
-import { protect } from '../../middlewares/auth.middleware';
-import { upload } from '../../middlewares/upload.middleware';
+import { getObservations, createObservation, addIdentification, addComment, getTaxa, getObservationById } from './observation.controller';
+import { authenticate } from '../../middlewares/auth.middleware';
+import upload from '../../middlewares/upload.middleware';
 
 const router = Router();
 
-// İstatistik endpoint'i (diğerlerinden önce tanımlanmalı ki /:id ile çakışmasın)
-router.get('/stats', getStatsHandler);
+// Public routes
+router.get('/taxa', getTaxa);
+router.get('/', getObservations);
+router.get('/:observationId', getObservationById);
 
-router.post('/', protect, upload.single('image'), createObservationHandler);
-router.get('/', getObservationsHandler);
+// Protected routes — require a valid JWT
+router.post('/', authenticate, upload.single('image'), createObservation);
+router.post('/:observationId/identifications', authenticate, addIdentification);
+router.post('/:observationId/comments', authenticate, addComment);
 
 export default router;

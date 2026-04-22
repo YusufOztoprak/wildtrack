@@ -8,33 +8,104 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  observations Observation[]
+  id              Int              @id @default(autoincrement())
+  email           String           @unique
+  password        String
+  name            String?
+  avatarUrl       String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  
+  observations    Observation[]
+  identifications Identification[]
+  comments        Comment[]
+}
+
+enum Rank {
+  KINGDOM
+  PHYLUM
+  CLASS
+  ORDER
+  FAMILY
+  GENUS
+  SPECIES
+}
+
+enum VerificationStatus {
+  CASUAL
+  NEEDS_ID
+  RESEARCH_GRADE
+}
+
+model Taxon {
+  id              Int              @id @default(autoincrement())
+  name            String           @unique
+  commonName      String?
+  rank            Rank
+  parentId        Int?
+  parent          Taxon?           @relation("TaxonHierarchy", fields: [parentId], references: [id])
+  children        Taxon[]          @relation("TaxonHierarchy")
+  
+  observations    Observation[]
+  identifications Identification[]
 }
 
 model Observation {
-  id          Int      @id @default(autoincrement())
-  species     String
-  count       Int      @default(1)
-  behavior    String?
-  latitude    Float
-  longitude   Float
-  imageUrl    String?
-  observedAt  DateTime @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                 Int                  @id @default(autoincrement())
   
-  verificationStatus String @default("PENDING") // PENDING, VERIFIED, FLAGGED
+  // Community consensus taxon
+  taxonId            Int?
+  taxon              Taxon?               @relation(fields: [taxonId], references: [id])
+  
+  count              Int                  @default(1)
+  behavior           String?
+  description        String?
+  latitude           Float
+  longitude          Float
+  observedAt         DateTime             @default(now())
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  
+  status             VerificationStatus   @default(NEEDS_ID)
   aiConfidence       Float?
   
-  authorId    Int
-  author      User     @relation(fields: [authorId], references: [id])
+  authorId           Int
+  author             User                 @relation(fields: [authorId], references: [id])
+
+  media              ObservationMedia[]
+  identifications    Identification[]
+  comments           Comment[]
 
   @@index([latitude, longitude])
-  @@index([species])
+  @@index([taxonId])
+}
+
+model ObservationMedia {
+  id             Int          @id @default(autoincrement())
+  observationId  Int
+  observation    Observation  @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  url            String
+  createdAt      DateTime     @default(now())
+}
+
+model Identification {
+  id             Int          @id @default(autoincrement())
+  observationId  Int
+  observation    Observation  @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  userId         Int
+  user           User         @relation(fields: [userId], references: [id])
+  taxonId        Int
+  taxon          Taxon        @relation(fields: [taxonId], references: [id])
+  body           String?      
+  createdAt      DateTime     @default(now())
+}
+
+model Comment {
+  id             Int          @id @default(autoincrement())
+  observationId  Int
+  observation    Observation  @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  userId         Int
+  user           User         @relation(fields: [userId], references: [id])
+  body           String
+  createdAt      DateTime     @default(now())
 }
