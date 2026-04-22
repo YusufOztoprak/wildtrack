@@ -37,7 +37,7 @@ export class ObservationService {
         },
       },
       orderBy: { createdAt: 'desc' },
-      take: 100,
+      take: 100, // TODO: add cursor-based pagination for production scale
     });
   }
 

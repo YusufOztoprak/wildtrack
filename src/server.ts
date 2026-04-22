@@ -1,3 +1,4 @@
+import './utils/env';
 import app from './app';
 import dotenv from 'dotenv';
 

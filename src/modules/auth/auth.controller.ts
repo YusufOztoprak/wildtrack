@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as authService from './auth.service';
 import { registerSchema, loginSchema } from './auth.schema';
+import { AuthRequest } from '../../middlewares/auth.middleware';
 
 export const register = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -22,8 +23,6 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
   }
 };
 
-export const getMe = async (req: Request, res: Response, next: NextFunction) => {
-    // @ts-ignore
-    const user = req.user;
-    res.json(user);
-}
+export const getMe = (req: AuthRequest, res: Response) => {
+  res.json(req.user);
+};

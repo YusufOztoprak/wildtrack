@@ -27,5 +27,3 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
   req.user = decoded as { userId: number; email: string; iat: number; exp: number; };
   next();
 };
-
-export const protect = authenticate;
