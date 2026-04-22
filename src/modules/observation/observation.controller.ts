@@ -97,7 +97,7 @@ export const createObservation = async (req: AuthRequest, res: Response) => {
 
     res.status(201).json({ ...observation, aiPrediction, validationResult });
   } catch (error) {
-    console.error('Error creating observation:', error);
+    console.error('createObservation fatal error:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
