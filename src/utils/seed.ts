@@ -4,10 +4,21 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  const existing = await prisma.user.count();
-  if (existing > 0) {
-    console.log('Database already seeded — skipping.');
-    return;
+  const force = process.argv.includes('--force');
+  if (!force) {
+    const existing = await prisma.user.count();
+    if (existing > 0) {
+      console.log('Database already seeded — skipping.');
+      return;
+    }
+  } else {
+    console.log('--force flag detected — clearing existing data...');
+    await prisma.comment.deleteMany();
+    await prisma.identification.deleteMany();
+    await prisma.observationMedia.deleteMany();
+    await prisma.observation.deleteMany();
+    await prisma.user.deleteMany();
+    await prisma.taxon.deleteMany();
   }
 
   console.log('Seeding database...');

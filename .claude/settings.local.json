@@ -15,7 +15,8 @@
       "Bash(netstat -ano)",
       "Bash(findstr \":3000 \")",
       "Bash(taskkill:*)",
-      "Bash(cmd:*)"
+      "Bash(cmd:*)",
+      "Bash(git add:*)"
     ]
   }
 }
