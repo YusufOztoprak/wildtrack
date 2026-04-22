@@ -59,7 +59,7 @@ export const createObservation = async (req: AuthRequest, res: Response) => {
     // ── 3. Scientific validation (only when a taxon is identified) ───────────
     let validationResult = null;
     if (taxon) {
-      validationResult = validateScientific(
+      validationResult = await validateScientific(
         taxon.name,
         behavior ?? '',
         1,

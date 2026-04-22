@@ -1,5 +1,36 @@
 import { knowledgeBase, normalizationMap, ClimateZone } from './knowledgeBase';
 
+// ── iNaturalist fallback ───────────────────────────────────────────────────────
+
+interface InatTaxonInfo {
+    iconic_taxon_name: string | null;
+}
+
+// Aquatic iconic taxa that live in any ocean — skip geographic check.
+const AQUATIC_ICONIC = new Set(['Actinopterygii', 'Chondrichthyes', 'Elasmobranchii', 'Cephalaspidomorphi']);
+
+// Module-level cache keyed by normalised species name.
+// Persists for the process lifetime, avoiding redundant iNat API calls.
+const inatCache = new Map<string, InatTaxonInfo | null>();
+
+const fetchInatTaxon = async (speciesName: string): Promise<InatTaxonInfo | null> => {
+    if (inatCache.has(speciesName)) return inatCache.get(speciesName)!;
+    try {
+        const url = `https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(speciesName)}&per_page=1`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+        if (!res.ok) { inatCache.set(speciesName, null); return null; }
+        const json = await res.json() as { results?: Array<{ iconic_taxon_name?: string }> };
+        const info: InatTaxonInfo = {
+            iconic_taxon_name: json.results?.[0]?.iconic_taxon_name ?? null,
+        };
+        inatCache.set(speciesName, info);
+        return info;
+    } catch {
+        inatCache.set(speciesName, null);
+        return null;
+    }
+};
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface ValidationResult {
@@ -79,14 +110,14 @@ const speciesNamesMatch = (a: string, b: string): boolean => {
 
 // ── Main validator ────────────────────────────────────────────────────────────
 
-export const validateScientific = (
+export const validateScientific = async (
     speciesName: string,
     behavior: string,
     count: number,
     latitude: number,
     longitude: number,
     aiPrediction: { species: string; confidence: number } | null
-): ValidationResult => {
+): Promise<ValidationResult> => {
 
     const result: ValidationResult = {
         overall_valid: true,
@@ -106,7 +137,51 @@ export const validateScientific = (
         result.issues.push(
             `Species '${speciesName}' is not in the active knowledge base. Marked for manual review.`
         );
-        // Remaining checks require species data — bail out early.
+
+        // Fallback: query iNaturalist to apply broad geographic rules.
+        const inatInfo = await fetchInatTaxon(speciesName);
+        const iconic = inatInfo?.iconic_taxon_name ?? null;
+        const absLat = Math.abs(latitude);
+
+        if (iconic && !AQUATIC_ICONIC.has(iconic)) {
+            if (iconic === 'Aves') {
+                // Birds migrate — no geographic restriction.
+            } else if (iconic === 'Mammalia') {
+                if (absLat > 75) {
+                    result.overall_valid = false;
+                    result.status = 'rejected';
+                    result.issues.push(
+                        `Geographic Impossibility: No known non-polar mammals inhabit extreme polar ` +
+                        `latitudes (lat ${latitude.toFixed(1)}°). If this is a polar species, ` +
+                        `it must be submitted with a recognised common name.`
+                    );
+                } else if (absLat > 50) {
+                    result.status = 'suspicious';
+                    result.issues.push(
+                        `Geographic Anomaly: Mammal '${speciesName}' observed at lat ${latitude.toFixed(1)}° — ` +
+                        `most mammals do not range this far from the tropics. Flagged for review.`
+                    );
+                }
+            } else if (iconic === 'Reptilia') {
+                if (absLat > 55) {
+                    result.status = 'suspicious';
+                    result.issues.push(
+                        `Geographic Anomaly: Reptiles are ectothermic and rarely survive at ` +
+                        `lat ${latitude.toFixed(1)}°. Flagged for review.`
+                    );
+                }
+            } else if (iconic === 'Amphibia') {
+                if (absLat > 60) {
+                    result.status = 'suspicious';
+                    result.issues.push(
+                        `Geographic Anomaly: Amphibians are rarely found at lat ${latitude.toFixed(1)}° ` +
+                        `due to cold temperatures. Flagged for review.`
+                    );
+                }
+            }
+        }
+
+        // Remaining checks require knowledgeBase data — bail out.
         return result;
     }
 
