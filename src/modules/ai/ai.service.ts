@@ -15,7 +15,7 @@ export const predictSpecies = async (buffer: Buffer, mimetype: string): Promise<
   console.log('[iNaturalist] Sending image buffer, size:', buffer.byteLength, 'mimetype:', mimetype);
 
   const formData = new FormData();
-  const blob = new Blob([buffer], { type: mimetype });
+  const blob = new Blob([new Uint8Array(buffer)], { type: mimetype });
   formData.append('image', blob, 'photo.jpg');
 
   let res: Response;
