@@ -4,6 +4,12 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
+  const existing = await prisma.user.count();
+  if (existing > 0) {
+    console.log('Database already seeded — skipping.');
+    return;
+  }
+
   console.log('Seeding database...');
 
   // ── 1. Taxonomy ──────────────────────────────────────────────────────────────
