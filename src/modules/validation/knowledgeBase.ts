@@ -203,6 +203,7 @@ export const normalizationMap: Record<string, keyof typeof knowledgeBase> = {
     'giraffe': 'giraffe',
     'camel': 'camel',
     'dromedary': 'camel',
+    'camelus dromedarius': 'camel',
     'bactrian camel': 'camel',
     'polar bear': 'polar_bear',
     'polar_bear': 'polar_bear',
