@@ -29,7 +29,7 @@ app.use(helmet({
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://unpkg.com", "https://cdnjs.cloudflare.com", "https://cdn.tailwindcss.com"],
             imgSrc: ["'self'", "data:", "blob:", "https://*.basemaps.cartocdn.com", "https://unpkg.com", "https://*.tile.openstreetmap.org", "https://res.cloudinary.com", "https://api.dicebear.com", "https://images.unsplash.com", "https://upload.wikimedia.org", "https://*.wikimedia.org", "https://inaturalist-open-data.s3.amazonaws.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
-            connectSrc: ["'self'", "https://*.tile.openstreetmap.org", "https://*.basemaps.cartocdn.com", "https://en.wikipedia.org"],
+            connectSrc: ["'self'", "https://*.tile.openstreetmap.org", "https://*.basemaps.cartocdn.com", "https://en.wikipedia.org", "https://api.inaturalist.org"],
         },
     },
     crossOriginResourcePolicy: { policy: "cross-origin" }
