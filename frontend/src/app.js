@@ -12,18 +12,30 @@ function updateHeaderAuth() {
   const loginBtn  = document.getElementById('headerLoginBtn');
   const userArea  = document.getElementById('headerUserArea');
   const userName  = document.getElementById('headerUserName');
+  const landing   = document.getElementById('landingPage');
 
   if (user) {
     loginBtn.classList.add('hidden');
     userArea.classList.remove('hidden');
     userArea.classList.add('flex');
     userName.textContent = user.name || user.email;
+    landing?.classList.add('hidden');
   } else {
     loginBtn.classList.remove('hidden');
     userArea.classList.add('hidden');
     userArea.classList.remove('flex');
+    landing?.classList.remove('hidden');
   }
 }
+
+window.openGetStarted = function() {
+  openAuthModal();
+  switchAuthTab('register');
+};
+
+window.hideLandingPage = function() {
+  document.getElementById('landingPage').classList.add('hidden');
+};
 
 window.openAuthModal = function() {
   document.getElementById('authError').classList.add('hidden');
