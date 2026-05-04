@@ -1,11 +1,24 @@
 import { Response } from 'express';
 import { observationService } from './observation.service';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, VerificationStatus } from '@prisma/client';
 import { updateCommunityConsensus } from './community.service';
 import { uploadBuffer } from '../../utils/cloudinary';
 import { predictSpecies } from '../ai/ai.service';
 import { validateScientific } from '../validation/scientific.validator';
+import { validateGeographicSanity, GeoValidationResult } from '../geospatial/gbif.validator';
+import { wallaceLineGuard, WallaceGuardResult } from '../geospatial/wallaceLine.guard';
+import {
+  computeQualityGrade,
+  ObservationSnapshot,
+  QualityGrade,
+} from './qualityGrade';
 import { AuthRequest } from '../../middlewares/auth.middleware';
+
+const GRADE_TO_STATUS: Record<QualityGrade, VerificationStatus> = {
+  [QualityGrade.CASUAL]: VerificationStatus.CASUAL,
+  [QualityGrade.NEEDS_ID]: VerificationStatus.NEEDS_ID,
+  [QualityGrade.RESEARCH_GRADE]: VerificationStatus.RESEARCH_GRADE,
+};
 
 const prisma = new PrismaClient();
 
@@ -37,7 +50,7 @@ export const getObservations = async (req: AuthRequest, res: Response) => {
 
 export const createObservation = async (req: AuthRequest, res: Response) => {
   try {
-    const { taxonId, taxonName, latitude, longitude, description, observedAt, behavior } = req.body;
+    const { taxonId, taxonName, latitude, longitude, description, observedAt, behavior, captive } = req.body;
     const authorId = req.user!.userId;
     const lat = parseFloat(latitude);
     const lng = parseFloat(longitude);
@@ -93,7 +106,50 @@ export const createObservation = async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // ── 4. Persist (skipped entirely for rejected observations) ───────────────
+    // ── 3.5. Wallace Line biogeographic guard ─────────────────────────────────
+    let wallaceGuardResult: WallaceGuardResult | null = null;
+    if (taxon) {
+      wallaceGuardResult = wallaceLineGuard({
+        speciesName: taxon.name,
+        lat,
+        lng,
+        captive: captive === true,
+      });
+    }
+
+    // ── 3.6. GBIF geographic sanity check ─────────────────────────────────────
+    let geoValidationResult: GeoValidationResult | null = null;
+    if (taxon) {
+      try {
+        geoValidationResult = await validateGeographicSanity(taxon.name, lat, lng);
+        if (!geoValidationResult.valid) {
+          return res.status(400).json({
+            error: geoValidationResult.error,
+            speciesName: taxon.name,
+            lat,
+            lng,
+            nearbyCount: geoValidationResult.nearbyCount,
+            globalCount: geoValidationResult.globalCount,
+          });
+        }
+      } catch (geoError) {
+        console.error('GBIF geographic validation error (degraded gracefully):', geoError);
+      }
+    }
+
+    // ── 4. Compute initial quality grade, then persist ────────────────────────
+    const locationMismatch = wallaceGuardResult?.flaggedForReview === true;
+
+    const initialSnapshot: ObservationSnapshot = {
+      hasMedia: mediaUrls.length > 0,
+      hasObservedAt: !!observedAt,
+      hasGps: Number.isFinite(lat) && Number.isFinite(lng),
+      identifications: [],
+      hasLocationMismatch: locationMismatch,
+    };
+
+    const qualityGradeResult = computeQualityGrade(initialSnapshot);
+
     const observation = await observationService.createObservation({
       authorId,
       taxonId: taxon ? taxon.id : undefined,
@@ -104,9 +160,11 @@ export const createObservation = async (req: AuthRequest, res: Response) => {
       aiConfidence: aiPrediction?.confidence,
       observedAt: new Date(observedAt || Date.now()),
       mediaUrls,
+      status: GRADE_TO_STATUS[qualityGradeResult.grade],
+      locationMismatch,
     });
 
-    res.status(201).json({ ...observation, aiPrediction, validationResult });
+    res.status(201).json({ ...observation, aiPrediction, validationResult, wallaceGuardResult, geoValidationResult, qualityGradeResult });
   } catch (error) {
     console.error('createObservation fatal error:', error);
     res.status(500).json({ error: 'Internal Server Error' });

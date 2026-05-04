@@ -67,6 +67,7 @@ model Observation {
   updatedAt          DateTime             @updatedAt
   
   status             VerificationStatus   @default(NEEDS_ID)
+  locationMismatch   Boolean              @default(false)
   aiConfidence       Float?
   
   authorId           Int

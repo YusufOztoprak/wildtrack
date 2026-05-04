@@ -9,6 +9,7 @@ export const createObservationSchema = z.object({
     longitude: z.string().transform((val) => parseFloat(val)).or(z.number()),
     description: z.string().optional(),
     behavior: z.string().optional(),
+    captive: z.boolean().optional(),
   }),
   files: z.array(z.any()).optional() // To handle Multer files properly in validation
 });

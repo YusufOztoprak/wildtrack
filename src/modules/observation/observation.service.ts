@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient, Prisma, VerificationStatus } from '@prisma/client';
 import { updateCommunityConsensus } from './community.service';
 
 const prisma = new PrismaClient();
@@ -51,6 +51,8 @@ export class ObservationService {
     aiConfidence?: number;
     mediaUrls: string[];
     observedAt: Date;
+    status?: VerificationStatus;
+    locationMismatch?: boolean;
   }) {
     const observation = await prisma.observation.create({
       data: {
@@ -62,7 +64,8 @@ export class ObservationService {
         behavior: data.behavior,
         aiConfidence: data.aiConfidence,
         observedAt: data.observedAt,
-        status: 'NEEDS_ID',
+        status: data.status ?? VerificationStatus.NEEDS_ID,
+        locationMismatch: data.locationMismatch ?? false,
         media: {
           create: data.mediaUrls.map((url) => ({ url })),
         },
