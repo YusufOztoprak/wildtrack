@@ -218,9 +218,9 @@ function escapeHtml(str) {
 
 const map = L.map('map', { zoomControl: false }).setView([39.0, 35.0], 6);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
-  attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+  attribution: '© OpenStreetMap contributors',
 }).addTo(map);
 
 let markers = [];
