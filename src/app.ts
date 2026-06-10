@@ -10,14 +10,17 @@ import { errorHandler } from './middlewares/error.middleware';
 
 const app = express();
 
-// Rate Limit: 100 requests per 15 minutes
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
-    message: 'Too many requests, please try again later.'
-});
+const isTest = process.env.NODE_ENV === 'test';
 
-app.use(limiter);
+// Rate limiter is skipped in test mode to prevent 429s during the test suite.
+if (!isTest) {
+    const limiter = rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 100,
+        message: 'Too many requests, please try again later.'
+    });
+    app.use(limiter);
+}
 
 // Security Headers with Custom CSP
 app.use(helmet({
@@ -35,7 +38,7 @@ app.use(helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-app.use(morgan('dev'));
+if (!isTest) app.use(morgan('dev'));
 app.use(cors());
 app.use(express.json());
 
