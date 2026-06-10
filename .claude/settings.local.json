@@ -18,7 +18,19 @@
       "Bash(cmd:*)",
       "Bash(git add:*)",
       "Bash(git push:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(DATABASE_URL=\"postgresql://wildtrack_5bc8_user:kaxqJR0LQ6TabmUCzilnvNO7ljUjRRTr@dpg-d7k9bs3eo5us73842r6g-a.oregon-postgres.render.com/wildtrack_5bc8\" npx ts-node *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\yusuf\\\\WebstormProjects\\\\wildtrack\\\\src\" -Recurse -Filter \"*.ts\")",
+      "Bash(Select-Object FullName)",
+      "Bash(npx jest *)",
+      "Bash(npx ts-jest *)",
+      "Bash(docker -H npipe:////./pipe/docker_engine ps)",
+      "Bash(docker -H tcp://localhost:2375 ps)",
+      "Bash(psql \"postgresql://user:password@localhost:5432/postgres\" -c \"SELECT version\\(\\);\")",
+      "Bash(psql \"postgresql://postgres:521yusuf521@localhost:5432/postgres\" -c \"\\\\l\")",
+      "Bash(psql *)",
+      "PowerShell(psql *)",
+      "PowerShell($env:DATABASE_URL='postgresql://postgres:521yusuf521@localhost:5432/wildtrack_test?schema=public'; npx prisma db push --accept-data-loss --skip-generate 2>&1)"
     ]
   }
 }
